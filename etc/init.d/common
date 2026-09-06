@@ -54,6 +54,14 @@ reload_service() {
 
   echo 'Reloading NFQWS2 service...'
   kill -1 $(cat "$PIDFILE")
+
+  # Re-read the config and rebuild the rules: the startup part sources
+  # $CONFFILE.run after $CONFFILE, so without this both the running config and
+  # a later netfilter.d hook run would keep the values from the last start().
+  source "$CONFFILE"
+  create_running_config
+  firewall_iptables
+  firewall_ip6tables
 }
 
 validate_config() {

@@ -10,6 +10,20 @@ start() {
 
   $NFQWS_BIN --daemon --pidfile=$PIDFILE $(_startup_args)
 
+  # The daemon forks and writes the pidfile itself, after loading its lists.
+  # Wait for it before installing NFQUEUE rules: with --queue-bypass a daemon
+  # that failed to start degrades silently - traffic keeps flowing while
+  # nothing is desynced at all.
+  wait_i=0
+  until is_running; do
+    wait_i=$((wait_i + 1))
+    if [ "$wait_i" -gt 10 ]; then
+      echo 'NFQWS2 daemon did not start, firewall rules not installed' >&2
+      return 1
+    fi
+    sleep 1
+  done
+
   firewall_iptables
   firewall_ip6tables
   system_config

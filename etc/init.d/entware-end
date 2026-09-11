@@ -8,7 +8,10 @@ start() {
   create_running_config
   kernel_modules
 
-  $NFQWS_BIN --daemon --pidfile=$PIDFILE $(_startup_args)
+  if ! $NFQWS_BIN --daemon --pidfile=$PIDFILE $(_startup_args); then
+    echo 'NFQWS2 daemon exited with an error, firewall rules not installed' >&2
+    return 1
+  fi
 
   # The daemon forks and writes the pidfile itself, after loading its lists.
   # Wait for it before installing NFQUEUE rules: with --queue-bypass a daemon

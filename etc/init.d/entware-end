@@ -13,19 +13,14 @@ start() {
     return 1
   fi
 
-  # The daemon forks and writes the pidfile itself, after loading its lists.
-  # Wait for it before installing NFQUEUE rules: with --queue-bypass a daemon
-  # that failed to start degrades silently - traffic keeps flowing while
-  # nothing is desynced at all.
-  wait_i=0
-  until is_running; do
-    wait_i=$((wait_i + 1))
-    if [ "$wait_i" -gt 10 ]; then
-      echo 'NFQWS2 daemon did not start, firewall rules not installed' >&2
-      return 1
-    fi
-    sleep 1
-  done
+  # A daemon that died right after the fork would degrade silently: with
+  # --queue-bypass the traffic keeps flowing while nothing is processed. The
+  # child writes the pidfile immediately after the fork, so a single check is
+  # enough here, no waiting loop.
+  if ! is_running; then
+    echo 'NFQWS2 daemon did not start, firewall rules not installed' >&2
+    return 1
+  fi
 
   firewall_iptables
   firewall_ip6tables

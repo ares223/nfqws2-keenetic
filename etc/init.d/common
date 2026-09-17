@@ -38,7 +38,10 @@ is_running() {
   # Compare argv[0] rather than the whole command line: with a stale pidfile and
   # a recycled pid, any process merely mentioning the path would pass, and stop
   # would then SIGTERM it.
-  PID_ARGV0=$(tr '\0' '\n' < "/proc/$PID_SAVED/cmdline" 2>/dev/null | head -n 1)
+  # Redirections apply left to right, so 2>/dev/null has to come first: with a
+  # stale pid the input file is gone, and the open error would be printed before
+  # stderr got redirected.
+  PID_ARGV0=$(tr '\0' '\n' 2>/dev/null < "/proc/$PID_SAVED/cmdline" | head -n 1)
   if [ "$PID_ARGV0" != "$NFQWS_BIN" ]; then
     return 1
   fi

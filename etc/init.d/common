@@ -257,6 +257,7 @@ _startup_args() {
 
 _firewall_start() {
   local CMD=$1 # iptables or ip6tables
+  local rc=0
 
   MAX_PKT_IN=15
   MAX_PKT_OUT=15
@@ -280,60 +281,61 @@ _firewall_start() {
   fi
 
   $CMD -w -t mangle -N $IPT_GROUP_POST 2>/dev/null
-  $CMD -w -t mangle -F $IPT_GROUP_POST
-  $CMD -w -t mangle -C POSTROUTING -j $IPT_GROUP_POST 2>/dev/null || $CMD -w -t mangle -A POSTROUTING -j $IPT_GROUP_POST
+  $CMD -w -t mangle -F $IPT_GROUP_POST || rc=1
+  $CMD -w -t mangle -C POSTROUTING -j $IPT_GROUP_POST 2>/dev/null || $CMD -w -t mangle -A POSTROUTING -j $IPT_GROUP_POST || rc=1
 
   if [ "$CMD" = "iptables" ]; then
     $CMD -w -t nat -N $IPT_GROUP_NAT 2>/dev/null
-    $CMD -w -t nat -F $IPT_GROUP_NAT
-    $CMD -w -t nat -C POSTROUTING -j $IPT_GROUP_NAT 2>/dev/null || $CMD -w -t nat -A POSTROUTING -j $IPT_GROUP_NAT
+    $CMD -w -t nat -F $IPT_GROUP_NAT || rc=1
+    $CMD -w -t nat -C POSTROUTING -j $IPT_GROUP_NAT 2>/dev/null || $CMD -w -t nat -A POSTROUTING -j $IPT_GROUP_NAT || rc=1
   fi
 
   $CMD -w -t mangle -N $IPT_GROUP_PRE 2>/dev/null
-  $CMD -w -t mangle -F $IPT_GROUP_PRE
-  $CMD -w -t mangle -C PREROUTING -j $IPT_GROUP_PRE 2>/dev/null || $CMD -w -t mangle -A PREROUTING -j $IPT_GROUP_PRE
+  $CMD -w -t mangle -F $IPT_GROUP_PRE || rc=1
+  $CMD -w -t mangle -C PREROUTING -j $IPT_GROUP_PRE 2>/dev/null || $CMD -w -t mangle -A PREROUTING -j $IPT_GROUP_PRE || rc=1
 
   for IFACE in $ISP_INTERFACE; do
     # --- POSTROUTING (outgoing) ---
     # POLICY_EXCLUDE=0 stores non-policy connections in connmark to skip their replies.
     # POLICY_EXCLUDE=1 only returns current policy-marked packets to avoid touching Keenetic PBR state.
     if [ -n "$POLICY_EXC_RULE" ]; then
-      $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $POLICY_EXC_RULE
-      $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE -m connmark --mark $MARK_EXCLUDE -j RETURN
+      $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $POLICY_EXC_RULE || rc=1
+      $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE -m connmark --mark $MARK_EXCLUDE -j RETURN || rc=1
     fi
     if [ -n "$POLICY_RET_RULE" ]; then
-      $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $POLICY_RET_RULE
+      $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $POLICY_RET_RULE || rc=1
     fi
 
     # NFQUEUE rules (process only packets NOT marked as processed)
-    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p udp -m multiport --dports $UDP_PORTS $CB_ORIG --connbytes 1:$MAX_PKT_OUT $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS $CB_ORIG --connbytes 1:$MAX_PKT_OUT $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS --tcp-flags fin fin $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS --tcp-flags rst rst $JNFQ
+    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p udp -m multiport --dports $UDP_PORTS $CB_ORIG --connbytes 1:$MAX_PKT_OUT $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS $CB_ORIG --connbytes 1:$MAX_PKT_OUT $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS --tcp-flags fin fin $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS --tcp-flags rst rst $JNFQ || rc=1
 
     # NAT MASQUERADE
     if [ "$CMD" = "iptables" ]; then
-      $CMD -w -t nat -A $IPT_GROUP_NAT -o $IFACE -m mark --mark $MARK_PROCESSED -p udp -j MASQUERADE
+      $CMD -w -t nat -A $IPT_GROUP_NAT -o $IFACE -m mark --mark $MARK_PROCESSED -p udp -j MASQUERADE || rc=1
     fi
 
     # --- PREROUTING (incoming / replies) ---
     if [ -n "$POLICY_RET_RULE" ] && [ -z "$POLICY_EXC_RULE" ]; then
-      $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $POLICY_RET_RULE
+      $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $POLICY_RET_RULE || rc=1
     fi
     if [ -n "$POLICY_EXC_RULE" ]; then
-      $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE -m connmark --mark $MARK_EXCLUDE -j RETURN
+      $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE -m connmark --mark $MARK_EXCLUDE -j RETURN || rc=1
     fi
 
     # Already processed packets should not be re-queued.
-    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE -m mark --mark $MARK_PROCESSED -j RETURN
+    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE -m mark --mark $MARK_PROCESSED -j RETURN || rc=1
 
     # NFQUEUE rules (process only packets NOT marked as processed)
-    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p udp -m multiport --sports $UDP_PORTS $CB_REPLY --connbytes 1:$MAX_PKT_IN $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS $CB_REPLY --connbytes 1:$MAX_PKT_IN $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS --tcp-flags syn,ack syn,ack $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS --tcp-flags fin fin $JNFQ
-    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS --tcp-flags rst rst $JNFQ
+    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p udp -m multiport --sports $UDP_PORTS $CB_REPLY --connbytes 1:$MAX_PKT_IN $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS $CB_REPLY --connbytes 1:$MAX_PKT_IN $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS --tcp-flags syn,ack syn,ack $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS --tcp-flags fin fin $JNFQ || rc=1
+    $CMD -w -t mangle -A $IPT_GROUP_PRE -i $IFACE $CONN_CHECK -p tcp -m multiport --sports $TCP_PORTS --tcp-flags rst rst $JNFQ || rc=1
   done
+  return "$rc"
 }
 
 _firewall_stop() {

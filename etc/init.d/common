@@ -9,9 +9,9 @@ IPT_GROUP_POST="nfqws_post"
 IPT_GROUP_PRE="nfqws_pre"
 IPT_GROUP_NAT="nfqws_nat"
 
-source "$CONFFILE"
+. "$CONFFILE"
 if [ -f "$CONFFILE.run" ]; then
-  source "$CONFFILE.run"
+  . "$CONFFILE.run"
 fi
 
 is_running() {
@@ -59,30 +59,42 @@ status_service() {
 }
 
 validate_config() {
-  if [[ "$NFQWS_BASE_ARGS" =~ "--new" ]]; then
-    echo "Using --new in NFQWS_BASE_ARGS is not allowed. Use NFQWS_ARGS_CUSTOM instead"
-    return 1
-  fi
-  if [[ "$NFQWS_ARGS" =~ "--new" ]]; then
-    echo "Using --new in NFQWS_ARGS is not allowed. Use NFQWS_ARGS_CUSTOM instead"
-    return 1
-  fi
-  if [[ "$NFQWS_ARGS_QUIC" =~ "--new" ]]; then
-    echo "Using --new in NFQWS_ARGS_QUIC is not allowed. Use NFQWS_ARGS_CUSTOM instead"
-    return 1
-  fi
-  if [[ "$NFQWS_ARGS_UDP" =~ "--new" ]]; then
-    echo "Using --new in NFQWS_ARGS_UDP is not allowed. Use NFQWS_ARGS_CUSTOM instead"
-    return 1
-  fi
-  if [[ "$NFQWS_EXTRA_ARGS" =~ "--new" ]]; then
-    echo "Using --new in NFQWS_EXTRA_ARGS is not allowed. Use NFQWS_ARGS_CUSTOM instead"
-    return 1
-  fi
-  if [[ "$NFQWS_ARGS_IPSET" =~ "--new" ]]; then
-    echo "Using --new in NFQWS_ARGS_IPSET is not allowed. Use NFQWS_ARGS_CUSTOM instead"
-    return 1
-  fi
+  case "$NFQWS_BASE_ARGS" in
+    *--new*)
+      echo "Using --new in NFQWS_BASE_ARGS is not allowed. Use NFQWS_ARGS_CUSTOM instead"
+      return 1
+      ;;
+  esac
+  case "$NFQWS_ARGS" in
+    *--new*)
+      echo "Using --new in NFQWS_ARGS is not allowed. Use NFQWS_ARGS_CUSTOM instead"
+      return 1
+      ;;
+  esac
+  case "$NFQWS_ARGS_QUIC" in
+    *--new*)
+      echo "Using --new in NFQWS_ARGS_QUIC is not allowed. Use NFQWS_ARGS_CUSTOM instead"
+      return 1
+      ;;
+  esac
+  case "$NFQWS_ARGS_UDP" in
+    *--new*)
+      echo "Using --new in NFQWS_ARGS_UDP is not allowed. Use NFQWS_ARGS_CUSTOM instead"
+      return 1
+      ;;
+  esac
+  case "$NFQWS_EXTRA_ARGS" in
+    *--new*)
+      echo "Using --new in NFQWS_EXTRA_ARGS is not allowed. Use NFQWS_ARGS_CUSTOM instead"
+      return 1
+      ;;
+  esac
+  case "$NFQWS_ARGS_IPSET" in
+    *--new*)
+      echo "Using --new in NFQWS_ARGS_IPSET is not allowed. Use NFQWS_ARGS_CUSTOM instead"
+      return 1
+      ;;
+  esac
 }
 
 ndmc_cli() {
@@ -115,7 +127,7 @@ create_running_config() {
 
 remove_running_config() {
   rm -f "$CONFFILE.run"
-  source "$CONFFILE"
+  . "$CONFFILE"
 }
 
 kernel_modules() {
@@ -130,13 +142,13 @@ kernel_modules() {
   [ -n "$MODULE_DIRS" ] || MODULE_DIRS="/lib/modules/$KERNEL"
 
   # Try to load all modules (OpenWRT or Padavan)
-  modprobe -a -q nfnetlink_queue xt_multiport xt_connbytes xt_NFQUEUE xt_CONNMARK xt_connmark &> /dev/null
+  modprobe -a -q nfnetlink_queue xt_multiport xt_connbytes xt_NFQUEUE xt_CONNMARK xt_connmark >/dev/null 2>&1
 
   if [ -z "$(lsmod 2>/dev/null | grep "nfnetlink_queue ")" ]; then
     nfnetlink_mod_path=$(find $MODULE_DIRS -name "nfnetlink_queue.ko*")
 
     if [ -n "$nfnetlink_mod_path" ]; then
-      insmod "$nfnetlink_mod_path" &> /dev/null
+      insmod "$nfnetlink_mod_path" >/dev/null 2>&1
       echo "nfnetlink_queue.ko loaded"
     fi
   fi
@@ -145,7 +157,7 @@ kernel_modules() {
     multiport_mod_path=$(find $MODULE_DIRS -name "xt_multiport.ko*")
 
     if [ -n "$multiport_mod_path" ]; then
-      insmod "$multiport_mod_path" &> /dev/null
+      insmod "$multiport_mod_path" >/dev/null 2>&1
       echo "xt_multiport.ko loaded"
     fi
   fi
@@ -154,7 +166,7 @@ kernel_modules() {
     connbytes_mod_path=$(find $MODULE_DIRS -name "xt_connbytes.ko*")
 
     if [ -n "$connbytes_mod_path" ]; then
-      insmod "$connbytes_mod_path" &> /dev/null
+      insmod "$connbytes_mod_path" >/dev/null 2>&1
       echo "xt_connbytes.ko loaded"
     fi
   fi
@@ -163,7 +175,7 @@ kernel_modules() {
     nfqueue_mod_path=$(find $MODULE_DIRS -name "xt_NFQUEUE.ko*")
 
     if [ -n "$nfqueue_mod_path" ]; then
-      insmod "$nfqueue_mod_path" &> /dev/null
+      insmod "$nfqueue_mod_path" >/dev/null 2>&1
       echo "xt_NFQUEUE.ko loaded"
     else
       echo "Cannot find xt_NFQUEUE.ko module"
@@ -174,7 +186,7 @@ kernel_modules() {
     connmark_mod_path=$(find $MODULE_DIRS -name "xt_CONNMARK.ko*" -o -name "xt_connmark.ko*" | head -n 1)
 
     if [ -n "$connmark_mod_path" ]; then
-      insmod "$connmark_mod_path" &> /dev/null
+      insmod "$connmark_mod_path" >/dev/null 2>&1
       echo "xt_connmark.ko module loaded"
     fi
   fi
@@ -183,7 +195,7 @@ kernel_modules() {
     conntrack_mod_path=$(find $MODULE_DIRS -name "nf_conntrack.ko*" | head -n 1)
 
     if [ -n "$conntrack_mod_path" ]; then
-      insmod "$conntrack_mod_path" &> /dev/null
+      insmod "$conntrack_mod_path" >/dev/null 2>&1
       echo "nf_conntrack.ko loaded"
     fi
   fi
@@ -271,7 +283,7 @@ _firewall_start() {
   $CMD -w -t mangle -F $IPT_GROUP_POST
   $CMD -w -t mangle -C POSTROUTING -j $IPT_GROUP_POST 2>/dev/null || $CMD -w -t mangle -A POSTROUTING -j $IPT_GROUP_POST
 
-  if [ "$CMD" == "iptables" ]; then
+  if [ "$CMD" = "iptables" ]; then
     $CMD -w -t nat -N $IPT_GROUP_NAT 2>/dev/null
     $CMD -w -t nat -F $IPT_GROUP_NAT
     $CMD -w -t nat -C POSTROUTING -j $IPT_GROUP_NAT 2>/dev/null || $CMD -w -t nat -A POSTROUTING -j $IPT_GROUP_NAT
@@ -300,7 +312,7 @@ _firewall_start() {
     $CMD -w -t mangle -A $IPT_GROUP_POST -o $IFACE $CONN_CHECK -p tcp -m multiport --dports $TCP_PORTS --tcp-flags rst rst $JNFQ
 
     # NAT MASQUERADE
-    if [ "$CMD" == "iptables" ]; then
+    if [ "$CMD" = "iptables" ]; then
       $CMD -w -t nat -A $IPT_GROUP_NAT -o $IFACE -m mark --mark $MARK_PROCESSED -p udp -j MASQUERADE
     fi
 
@@ -334,7 +346,7 @@ _firewall_stop() {
   while $CMD -w -t mangle -C PREROUTING -j $IPT_GROUP_PRE 2>/dev/null; do
     $CMD -w -t mangle -D PREROUTING -j $IPT_GROUP_PRE 2>/dev/null || break
   done
-  if [ "$CMD" == "iptables" ]; then
+  if [ "$CMD" = "iptables" ]; then
     while $CMD -w -t nat -C POSTROUTING -j $IPT_GROUP_NAT 2>/dev/null; do
       $CMD -w -t nat -D POSTROUTING -j $IPT_GROUP_NAT 2>/dev/null || break
     done
@@ -345,7 +357,7 @@ _firewall_stop() {
   $CMD -w -t mangle -X $IPT_GROUP_POST 2>/dev/null
   $CMD -w -t mangle -F $IPT_GROUP_PRE 2>/dev/null
   $CMD -w -t mangle -X $IPT_GROUP_PRE 2>/dev/null
-  if [ "$CMD" == "iptables" ]; then
+  if [ "$CMD" = "iptables" ]; then
     $CMD -w -t nat -F $IPT_GROUP_NAT 2>/dev/null
     $CMD -w -t nat -X $IPT_GROUP_NAT 2>/dev/null
   fi
@@ -372,6 +384,6 @@ firewall_stop() {
 }
 
 system_config() {
-  sysctl -w net.netfilter.nf_conntrack_checksum=0 &> /dev/null
-  sysctl -w net.netfilter.nf_conntrack_tcp_be_liberal=1 &> /dev/null
+  sysctl -w net.netfilter.nf_conntrack_checksum=0 >/dev/null 2>&1
+  sysctl -w net.netfilter.nf_conntrack_tcp_be_liberal=1 >/dev/null 2>&1
 }

@@ -7,7 +7,6 @@ start() {
   validate_config || return 1
   create_running_config
   kernel_modules
-  system_config
 
   if ! $NFQWS_BIN --daemon --pidfile=$PIDFILE $(_startup_args); then
     echo 'NFQWS2 daemon exited with an error, firewall rules not installed' >&2
@@ -26,6 +25,7 @@ start() {
 
   firewall_iptables
   firewall_ip6tables
+  system_config
 
   echo 'Started NFQWS2 service'
 }
@@ -68,7 +68,6 @@ case "$1" in
     ;;
   kernel_modules)
     kernel_modules
-  system_config
     ;;
   *)
     echo "Usage: $0 {start|stop|restart|status}"

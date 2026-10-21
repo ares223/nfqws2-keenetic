@@ -16,7 +16,6 @@ start_service() {
   validate_config || return 1
   create_running_config
   kernel_modules
-  system_config
 
   procd_open_instance
   procd_set_param command $NFQWS_BIN $(_startup_args)
@@ -27,6 +26,7 @@ start_service() {
 
   firewall_iptables
   firewall_ip6tables
+  system_config
 
   echo 'Started NFQWS2 service'
 }

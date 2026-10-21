@@ -384,6 +384,7 @@ firewall_stop() {
 }
 
 system_config() {
+  sysctl -w net.netfilter.nf_conntrack_acct=1 >/dev/null 2>&1
   sysctl -w net.netfilter.nf_conntrack_checksum=0 >/dev/null 2>&1
   sysctl -w net.netfilter.nf_conntrack_tcp_be_liberal=1 >/dev/null 2>&1
 }

@@ -13,10 +13,11 @@ start() {
     return 1
   fi
 
-  # A daemon that died right after the fork would degrade silently: with
-  # --queue-bypass the traffic keeps flowing while nothing is processed. The
-  # child writes the pidfile immediately after the fork, so a single check is
-  # enough here, no waiting loop.
+  # The parent can exit before the child writes its pidfile.
+  for attempt in 1 2 3 4 5; do
+    is_running && break
+    sleep 1
+  done
   if ! is_running; then
     echo 'NFQWS2 daemon did not start, firewall rules not installed' >&2
     return 1
